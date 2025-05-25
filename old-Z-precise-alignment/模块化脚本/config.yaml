@@ -1,0 +1,40 @@
+###############序列比对使用的工具#############
+#blast必须使用，选择是否使用HMM进行进一步的筛选(默认使用)
+hmmsearch: "yes" # ["yes" || "NO"]
+pfam: "yes" # ["yes" || "NO"]
+
+################ bin ########################
+#blastp
+blastp_path: "/public/home/TonyWuLab/zhangzhd/anaconda3/envs/blast/bin/blastp"
+#blastx
+blastx_path: "/public/home/TonyWuLab/zhangzhd/anaconda3/envs/blast/bin/blastx"
+#clustalo
+clustalo_path: "/public/home/TonyWuLab/zhangzhd/anaconda3/envs/clustalo/bin/clustalo"
+#hmmsearch
+hmmsearch_path: "/public/home/TonyWuLab/zhangzhd/anaconda3/bin/hmmsearch"
+#hmmscan
+hmmscan_path: "/public/home/TonyWuLab/zhangzhd/anaconda3/bin/hmmscan"
+#hmmbuild
+hmmbuild: "/public/home/TonyWuLab/zhangzhd/anaconda3/bin/hmmbuild"
+#pfam
+pfam_scan: "/public/home/TonyWuLab/zhangzhd/software/pfam_scan-main/pfam_scan.py"
+
+################ 数据库位置 ##################
+# 蛋白质blast目录
+db_path: "/public/group_share_data/TonyWuLab/zzd/db/medusa-2023/all-hum-medusa-db-genmoic-protein"
+# GCF目录位置
+GCF_directory: "/public/group_share_data/TonyWuLab/zzd/db/medusa-taxon-genmoic/hum-medusa-db-all"
+# pfam目录位置
+pfam_dirextory: "/public/group_share_data/TonyWuLab/zzd/db/pfamdb/"
+
+################ 序列比对参数阈值设置 #########(默认是这个，可以在脚本中指定)
+# blast
+coverage_threshold: 0.7
+identity_threshold: 30
+# hmmsearch
+hmm_evalue : 0.0001
+hmm_score : 200
+
+################ GCF的物种注释信息 ############
+GCF_annotation: "/public/group_share_data/TonyWuLab/zzd/db/medusa-2023/all-hum-medusa-db-GCF-name.txt"
+medusa-annotation: "/public/group_share_data/TonyWuLab/zzd/db/medusa-2023/medus-annotation.Latest.txt"
