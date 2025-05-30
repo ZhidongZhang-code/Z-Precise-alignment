@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 此脚本专为处理FASTA格式的蛋白质序列文件设计，旨在识别并提取包含特定氨基酸位置模式的序列。
 它允许用户指定一个或多个氨基酸的位置以及相应的氨基酸类型，然后从一个大型的FASTA文件中
@@ -23,14 +25,19 @@ import argparse
 
 def parse_position_arg(position_str):
     """
-    解析命令行参数中的位置和氨基酸信息。
-    参数 position_str 是一个字符串列表，每个元素格式为 '位置:氨基酸'。
-    返回一个字典，键为位置（整数），值为对应的氨基酸（字符串）。
+    解析命令行参数中的位置和氨基酸信息，支持否定条件。
+    参数 position_str 是一个字符串列表，每个元素格式为 '位置:氨基酸' 或 '位置!氨基酸'。
+    返回一个字典，键为位置（整数），值为对应的氨基酸（字符串）及是否为否定条件（布尔值）。
     """
     positions = {}
     for pos_aa in position_str:
-        pos, aa = pos_aa.split(':')
-        positions[int(pos)] = aa
+        if '!' in pos_aa:
+            pos, aa = pos_aa.split('!')
+            negation = True
+        else:
+            pos, aa = pos_aa.split(':')
+            negation = False
+        positions[int(pos)] = (aa, negation)
     return positions
 
 def set_reference_indices(sequence, positions, reference_indices):
@@ -51,26 +58,30 @@ def set_reference_indices(sequence, positions, reference_indices):
 
 def extract_and_append_sequence(seq_id, sequence, reference_indices, rf_sequences):
     """
-    提取满足条件的序列并添加到结果列表中。
-    
-    Args:
-        seq_id (str): 序列的ID。
-        sequence (str): 序列数据。
-        reference_indices (dict): 参考位置索引和期望的氨基酸。
-        rf_sequences (list): 存储满足条件的序列ID和序列数据的列表。
+    提取满足条件的序列并添加到结果列表中，包括处理否定条件。
     """
-    # 检查序列是否包含所有指定的参考位置和氨基酸
-    if all(sequence[idx] == aa for idx, aa in reference_indices.items()):
+    valid_sequence = True
+    for idx, (aa, negation) in reference_indices.items():
+        if negation:
+            if sequence[idx] == aa:  # 如果是否定条件且匹配，则序列不满足条件
+                valid_sequence = False
+                break
+        else:
+            if sequence[idx] != aa:  # 如果不满足正常条件，则序列不满足条件
+                valid_sequence = False
+                break
+
+    if valid_sequence:
         first_index = min(reference_indices.keys())
         rf_seq, count = "", 0
         for i in range(first_index, len(sequence)):
             if sequence[i] != '-':
                 rf_seq += sequence[i]
                 count += 1
-                if count == 10:  # 只提取10个非gap字符
+                if count == 10:
                     break
         if count == 10:
-            rf_sequences.append((seq_id, rf_seq))  # 添加到结果列表
+            rf_sequences.append((seq_id, rf_seq))
 
 def find_sequences_with_rf(fasta_file, positions):
     """
@@ -123,14 +134,25 @@ def main(fasta_file, positions, output_file='output.txt'):
     # 输入fasta文件路径
     fasta_file = args.input
     # 输入序列位置信息
-    positions = parse_position_arg(args.position)
-    # 获取所有满足条件的序列的ID以及相应的锚点序列信息
-    rf_sequences = find_sequences_with_rf(fasta_file, positions)
-    #保存到文件
-    with open(output_file, 'w') as out_file:
+    all_positions = parse_position_arg(args.position)
+    # 对每个位置进行处理
+    for pos, (aa, negation) in all_positions.items():
+        # 每次循环中只使用一个位置的信息
+        positions = {pos: (aa, negation)}        
+        # 获取所有满足条件的序列的ID以及相应的锚点序列信息
+        rf_sequences = find_sequences_with_rf(fasta_file, positions)        
+        # 保存到文件，为每个位置创建一个新的输出文件
+        output_file = f"tmp_output_{pos}.txt"
+        with open(output_file, 'w') as out_file:
+            for sequence_id, anchor_seq in rf_sequences:
+                out_file.write(f">{sequence_id} {anchor_seq}\n")
+    #对于all_positions，也需要
+    rf_sequences = find_sequences_with_rf(fasta_file, all_positions) 
+    # 保存到文件
+    with open('tmp_output_original.txt', 'w') as out_file:
         for sequence_id, anchor_seq in rf_sequences:
             out_file.write(f">{sequence_id} {anchor_seq}\n")
-    print("结果已保存到output.txt文件中")
+    #print("结果已保存到output.txt文件中")
 
     parser = argparse.ArgumentParser(description="Process protein sequences")
     parser.add_argument("--input", help="input fasta file")
@@ -138,6 +160,7 @@ def main(fasta_file, positions, output_file='output.txt'):
     args = parser.parse_args()
 #    matches_protein = 'matches-protein.fasta'
 #    matches_cds = 'matches-cds.fasta'
+    
 
 if __name__ == "__main__":
 

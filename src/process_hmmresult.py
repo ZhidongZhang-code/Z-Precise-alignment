@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 #对hmmseach结果进行筛选，覆盖原始结果文件
 
 import pandas as pd
@@ -7,6 +9,9 @@ import shutil
 import yaml
 from log_config import setup_logging
 import sys
+
+# hmmbuild tmp_inputfasta_clustao.hmm tmp_inputfasta_clustao.fasta
+# hmmsearch --cpu 8 -o hmmsearch_output.txt tmp_inputfasta_clustao.hmm /public/group_share_data/TonyWuLab/zzd/db/medusa-2023/all-hum-medusa-db-genmoic-protein
 
 # 加载YAML配置文件的函数
 def load_config(config_file):
@@ -18,40 +23,68 @@ def excat_hmm_postition(input_file, output_file,hmm_evalue,hmm_score):
         # 初始化字典来存储数据
         data = {}
         
+        # for line in infile:
+        #     line = line.strip()
+        #     # 匹配细菌名称行
+        #     match_bacteria = re.match(r'^>> (\S+)', line)
+        #     #print(match_bacteria)
+        #     if match_bacteria:
+        #         bacteria = match_bacteria.group(1)
+        #         # 初始化或重置细菌数据
+        #         if bacteria not in data:
+        #             data[bacteria] = {'domains': 0, 'score': 0, 'evalue': 0,
+        #                               'hmmfrom': 50000, 'hmmto': 0,
+        #                               'alignfrom': 50000, 'alignto': 0}
+            
+        #     # 匹配数据行
+        #     match_data = re.match(r'(\d) \!\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+.*\s+(\d+)\s+(\d+)\s+.*\s+(\d+)\s+(\d+).*\S+', line)
+        #     if match_data:
+        #         domains, score, evalue, hmmfrom, hmmto, alignfrom, alignto = match_data.groups()[0], float(match_data.groups()[1]), float(match_data.groups()[3]), int(match_data.groups()[5]), int(match_data.groups()[6]), int(match_data.groups()[7]), int(match_data.groups()[8])
+        #         # 更新数据
+        #         data[bacteria]['domains'] += 1
+        #         data[bacteria]['score'] += score
+        #         data[bacteria]['evalue'] += evalue
+        #         data[bacteria]['hmmfrom'] = min(data[bacteria]['hmmfrom'], hmmfrom)
+        #         data[bacteria]['hmmto'] = max(data[bacteria]['hmmto'], hmmto)
+        #         data[bacteria]['alignfrom'] = min(data[bacteria]['alignfrom'], alignfrom)
+        #         data[bacteria]['alignto'] = max(data[bacteria]['alignto'], alignto)
         for line in infile:
             line = line.strip()
-            # 匹配细菌名称行
-            match_bacteria = re.match(r'^>> (\S+)\s+.*', line)
-            if match_bacteria:
-                bacteria = match_bacteria.group(1)
-                # 初始化或重置细菌数据
+            #将两个以上的空格替换为换行符
+            line = re.sub(r'\s+','\t', line)
+        #0	1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	21	22
+        #target name                    accession	tlen	query name      	accession	qlen	E-value	score	bias	#	of	c-Evalue	i-Evalue	score	bias	from	to	from	to	from	to	acc	description
+        #GCF_025821565.1_**_WP_011779127.1	-	    209	    tmp_inputfasta_clustao	-	    197 	8.8 	16.2	0	    1	1	    0.03	    12	    15.8	0   	51  	160	38	    142	   27	161	0.83	-
+
+            match_bateria = re.match(r'^.*_?\*\*_.+',line)
+            if match_bateria:
+                bacteria = line.split('\t')[0]
+                # print(bacteria)
                 if bacteria not in data:
                     data[bacteria] = {'domains': 0, 'score': 0, 'evalue': 0,
-                                      'hmmfrom': 50000, 'hmmto': 0,
-                                      'alignfrom': 50000, 'alignto': 0}
-            
-            # 匹配数据行
-            match_data = re.match(r'(\d) \!\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+.*\s+(\d+)\s+(\d+)\s+.*\s+(\d+)\s+(\d+).*\S+', line)
-            if match_data:
-                domain, score, evalue, hmmfrom, hmmto, alignfrom, alignto = match_data.groups()[0], float(match_data.groups()[1]), float(match_data.groups()[3]), int(match_data.groups()[5]), int(match_data.groups()[6]), int(match_data.groups()[7]), int(match_data.groups()[8])
+                                      'hmmfrom': 0, 'hmmto': 0,
+                                      'alignfrom': 0, 'alignto': 0}
                 # 更新数据
                 data[bacteria]['domains'] += 1
-                data[bacteria]['score'] += score
-                data[bacteria]['evalue'] += evalue
-                data[bacteria]['hmmfrom'] = min(data[bacteria]['hmmfrom'], hmmfrom)
-                data[bacteria]['hmmto'] = max(data[bacteria]['hmmto'], hmmto)
-                data[bacteria]['alignfrom'] = min(data[bacteria]['alignfrom'], alignfrom)
-                data[bacteria]['alignto'] = max(data[bacteria]['alignto'], alignto)
+                #print(line.split('\t'))
+                data[bacteria]['score'] += float(line.split('\t')[7])
+                data[bacteria]['evalue'] = float(line.split('\t')[6])
+                data[bacteria]['hmmfrom'] = int(line.split('\t')[15])
+                data[bacteria]['hmmto'] = int(line.split('\t')[16])
+                data[bacteria]['hmmlen'] = int(line.split('\t')[2])
+                data[bacteria]['alignfrom'] = int(line.split('\t')[17])
+                data[bacteria]['alignto'] = int(line.split('\t')[18])
 
         # 写入表头
         outfile.write("Bac_protein\tdomains\tscore\tmean_evalue\thmm_from\thmm_to\talign_from\talign_to\n")
         
         # 写入数据
         for bacteria, info in data.items():
-            if info['evalue'] <= float(hmm_evalue) and info['score'] >= hmm_score :
-                mean_evalue = info['evalue'] / info['domains']
-                hmm_cov = (abs(info['hmmto'] - info['hmmfrom']) + 1) / 63
-                outfile.write(f"{bacteria}\t{info['domains']}\t{info['score']}\t{mean_evalue}\t{info['hmmfrom']}\t{info['hmmto']}\t{info['alignfrom']}\t{info['alignto']}\n")
+            if info['evalue'] <= 0.0001 and info['score'] >= float(hmm_score) :
+                #mean_evalue = info['evalue'] / 1   #info['domains']
+                hmm_cov = (abs(info['hmmto'] - info['hmmfrom']) + 1) / info['hmmlen']
+                #outfile.write(f"{bacteria}\t{info['domains']}\t{info['score']}\t{mean_evalue}\t{info['hmmfrom']}\t{info['hmmto']}\t{info['alignfrom']}\t{info['alignto']}\n")
+                outfile.write(f"{bacteria}\t{info['domains']}\t{info['score']}\t{info['hmmlen']}\n")
 
 
 def compare_files_and_keep_df1_only(file1, file2, output_file, logger):
@@ -87,9 +120,9 @@ def compare_files_and_keep_df1_only(file1, file2, output_file, logger):
     #print(f"Merged result saved to {output_file}")
     logger.info(f"Merged result saved to {output_file}")
     #print(f"Rows in file1: {rows_in_file1}")
-    logger.info(f"blast organison in file1: {rows_in_file1}")
+    logger.info(f"blast organison in {file1}: {rows_in_file1}")
     #print(f"Rows in output file: {rows_in_output}")
-    logger.info(f"filtered in output file: {rows_in_output}")
+    logger.info(f"HMM filtered in output {file2}: {rows_in_output}")
     #print(f"Difference in rows: {difference}")
     logger.info(f"Difference in rows: {difference}")
 
@@ -99,7 +132,7 @@ def main():
     parser.add_argument('--hmmsearch_output', type=str, help='Output file name for hmmsearch results.', required=True)
     parser.add_argument('--blastoutput',  type=str, help='Path to the BLAST output file', metavar='BLAST_OUTPUT')
     parser.add_argument('--hmm_evalue', default='1e-4',type=str, help='hmmsearch evalue  (default:1e-4)', metavar='evalue')
-    parser.add_argument('--hmm_score', default='200',type=int, help='hmmsearch score  (default:200)', metavar='score')
+    parser.add_argument('--hmm_score', default='0',type=int, help='hmmsearch score  (default:0)', metavar='score')
     parser.add_argument('--config', type=str, default='config.yaml', help='Configuration file path (default: config.yaml)', metavar='CONFIG_FILE')
     parser.add_argument('--log_file', '-l', type=str, help='Optional log file path', metavar='LOG_FILE')
     parser.add_argument('--hmm_screen_output_file', help='The output file path to save the filtered results.')
@@ -130,4 +163,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 

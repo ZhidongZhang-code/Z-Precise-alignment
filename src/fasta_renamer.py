@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import sys
 import argparse
@@ -35,8 +37,8 @@ def rename(input_files, output_file_path):
                     modified_lines.append(f'>{file_name}_**_{line[1:]}')
                 else:
                     modified_lines.append(line)
-
-        modified_content = '\n'.join(modified_lines)
+        # 将修改后的内容写入输出文件，并且增加换行符
+        modified_content = '\n'.join(modified_lines) + '\n'
 
         with open(output_file_path, 'a') as output_file:
             output_file.write(modified_content)
@@ -49,7 +51,7 @@ def main():
     parser = argparse.ArgumentParser(description='Process input FASTA files and modify headers.')
     parser.add_argument('--fasta_input', nargs='+', type=str, help='Input FASTA file paths')
     parser.add_argument('--fasta_rename', type=str, help='Output FASTA file path')
-    parser.add_argument('--log', type=str, help='Log file path (optional)')
+    parser.add_argument('--log_file', type=str, help='Log file path (optional)')
     args = parser.parse_args()
 
     output_file_path = args.fasta_rename

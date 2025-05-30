@@ -1,3 +1,19 @@
+#!/usr/bin/env python3
+
+"""
+根据输入文件，提取目标位点附近上游24个，下游25个氨基酸位置的核苷酸序列
+用来构建bowtie2的索引
+
+###输入文件格式
+WP_003018763.1,GCF_029104325.1_ASM2910432v1,383
+WP_006234258.1,GCF_000169035.1_ASM16903v1,369
+WP_013451841.1,GCF_000183405.1_ASM18340v1,359
+WP_013479277.1,GCF_000175215.2_ASM17521v2,374
+WP_006042661.1,GCF_000153285.1_ASM15328v1,373
+
+
+"""
+
 def parse_cds_fasta(filename):
     """
     解析output_cds.fasta文件
@@ -38,7 +54,7 @@ def extract_nucleotide_sequence(cds_entries, protein_id, genome_id, position):
             start = max(0, cds_position - 75)
             end = min(len(sequence), cds_position + 75)
             nucleotide_sequence = sequence[start:end]
-            return nucleotide_sequence
+            return cds_position,nucleotide_sequence
     return None
 
 def process_cds_fasta(cds_filename, matches_filename, output_filename):
@@ -58,9 +74,11 @@ def process_cds_fasta(cds_filename, matches_filename, output_filename):
     with open(matches_filename, 'r') as matches_file, open(output_filename, 'w') as output_file:
         for line in matches_file:
             protein_id, genome_id, position = line.strip().split(',')
-            nucleotide_sequence = extract_nucleotide_sequence(cds_entries, protein_id, genome_id, position)
-            if nucleotide_sequence is not None:
-#                output_file.write(f"Match found for protein ID {protein_id}, genome ID {genome_id}, position {position}: {nucleotide_sequence}\n")
-                output_file.write(f"{genome_id}_**_{protein_id}\n{nucleotide_sequence}\n")
-#            else:
-#                output_file.write(f"No match found for protein ID {protein_id}, genome ID {genome_id}, position {position}\n")
+            result = extract_nucleotide_sequence(cds_entries, protein_id, genome_id, position)
+            if result is not None:
+                cds_position, nucleotide_sequence = result
+                position_int = int(position)  # 将字符串转换为整数
+                output_file.write(f">{genome_id}_**_{protein_id}||{position_int - 24}:{position_int + 25}\n{nucleotide_sequence}\n")
+            else:
+                # 如果你想在没有找到匹配项时做一些操作，可以在这里添加代码
+                pass

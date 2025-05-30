@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 #对pfam结果进行筛选，覆盖原始结果文件
 
 import pandas as pd
@@ -24,9 +26,11 @@ def pfam_compare_files_and_keep_df1_only(pfamfile, blastoutfile, keys , output_f
     # 加载BLAST文件
     blast_df = pd.read_csv(blastoutfile, sep='\t')
     # 筛选BLAST文件中存在于处理后PFAM seq_id中的行
-    filtered_blast_df = blast_df[blast_df.iloc[:,1].isin(filtered_pfam_df['processed_seq_id'])]
+    #filtered_blast_df = blast_df[blast_df.iloc[:,1].isin(filtered_pfam_df['processed_seq_id'])]
+    filtered_blast_df = blast_df[blast_df.iloc[:,1].apply(lambda x: x.split('_**_')[-1]).isin(filtered_pfam_df['processed_seq_id'])]
     # 找出被删除的行
-    removed_blast_df = blast_df[~blast_df.iloc[:,1].isin(filtered_pfam_df['processed_seq_id'])]
+    #removed_blast_df = blast_df[~blast_df.iloc[:,1].isin(filtered_pfam_df['processed_seq_id'])]
+    removed_blast_df = blast_df[~blast_df.iloc[:,1].apply(lambda x: x.split('_**_')[-1]).isin(filtered_pfam_df['processed_seq_id'])]
     # 保存筛选后的结果，包含标题行
     filtered_blast_df.to_csv(output_file, index=False, sep='\t')
 
@@ -36,8 +40,8 @@ def pfam_compare_files_and_keep_df1_only(pfamfile, blastoutfile, keys , output_f
     #difference = rows_in_file1 - rows_in_output
 
     #打印日志
-    logger.info(f"After screening, {rows_in_removed} sequences were removed")
-    logger.info(f"After screening, {rows_in_filtered} sequences were retained")
+    logger.info(f"After screening, {rows_in_removed} sequences were removed not with {keys}")
+    logger.info(f"After screening, {rows_in_filtered} sequences were retained centain {keys}")
     #logger.info(f"Rows in output file: {rows_in_output}")
     #logger.info(f"Difference in rows: {difference}")
 

@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import sys
 import re
 import argparse
@@ -29,8 +31,8 @@ def filenormalization(input_file, output_file, coverage_threshold, identity_thre
             line = line.strip()
             if re.match(r'^\w+', line):
                 test = line.split('\t')
-                if (abs(float(test[5]) - float(test[4]) + 1) / int(test[2]) >= coverage_threshold and
-                    abs(float(test[7]) - float(test[6]) + 1) / int(test[3]) >= coverage_threshold and
+                if (abs(float(test[5]) - float(test[4]) + 1) / float(test[2]) >= coverage_threshold and
+                    abs(float(test[7]) - float(test[6]) + 1) / float(test[3]) >= coverage_threshold and
                     float(test[11]) >= identity_threshold):
                     new_lines.append(line + '\n')
 
@@ -38,13 +40,16 @@ def filenormalization(input_file, output_file, coverage_threshold, identity_thre
             parts = line.strip().split('\t')
             if len(parts) >= 2:
                 col1, col2 = parts[0], parts[1]
-                col1 = col1.split("_**_")[0]
-                col2 = "_".join(col2.split("_", 2)[:2])
+                col1 = col1.split("_**_")[0]    #去掉KO信息
+                #col2 = "_".join(col2.split("_", 2)[:2]) #去掉蛋白信息
                 new_line = "{}\t{}\t{}\n".format(col2, col1, '\t'.join(parts[2:]))
                 outfile.write(new_line)
         logger.info("File normalization processed successfully.")
-
-    logger.info(f"Processing complete. Results have been written to {output_file}")
+    # 统计文件行数，用于日志记录
+    with open(output_file, 'r') as f:
+        line_count = sum(1 for _ in f)
+    #logger.info(f"Total lines written to output file: {line_count}")
+    logger.info(f"blast processing complete. Results have been written to {output_file}, with total lines: {line_count}.\n")
 
 def main():
     parser = argparse.ArgumentParser(description='File normalization script for alignment result files.')

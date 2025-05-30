@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import subprocess
 import argparse
 import logging
@@ -30,7 +32,7 @@ def run_pfam(input,pfam_params, logger):
         logger.error(f'Error executing pfam_scan command: {e}')
         sys.exit(1)
         
-    logger.info(f'{pfam_params["pfam_scan"]} analysis completed.')
+    logger.info(f'{pfam_params["pfam_path"]} analysis completed.')
 
 def run():
     parser = argparse.ArgumentParser(description='Run pfam analysis.')

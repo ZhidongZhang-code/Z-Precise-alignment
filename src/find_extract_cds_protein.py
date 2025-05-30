@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import re
 import argparse
@@ -6,10 +8,18 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from log_config import setup_logging
 
+
+###############
+###传入为临时blast文件，只带筛选
+
+###############
+
 # 加载YAML配置文件的函数
 def load_config(config_file):
     with open(config_file, 'r') as file:
         return yaml.safe_load(file)
+
+
 
 # 初始化锁
 write_lock_cds = Lock()
@@ -27,7 +37,7 @@ def findextractcdsprotein(input_file, directory, num_threads ,
                           alignment_protein = 'alignment_extract_protein.fasta', 
                           config_file='config.yaml'):
     """ 
-def findextractcdsprotein(input_file, num_threads, alignment_cds, alignment_protein, logger, config):
+def findextractcdsprotein(input_file, num_threads, alignment_cds, alignment_protein, blast_identity,blast_cover,logger, config):
     """
     处理输入文件，提取符合条件的标识符，并使用线程池并行处理序列文件。
 
@@ -38,18 +48,16 @@ def findextractcdsprotein(input_file, num_threads, alignment_cds, alignment_prot
 
     logger.info('find extract cds and protein analysis started.')
     identifiers = set()  # 用于存储唯一的标识符
-
     directory = config['GCF_directory']  # 从配置文件中读取路径
-
     with open(input_file, 'r') as infile:
         for line in infile:
             line = line.strip()
             if re.match(r'^\w+', line):
                 columns = line.split('\t')
                 # 根据特定条件筛选标识符
-                if (abs(float(columns[5]) - float(columns[4]) + 1) / int(columns[2]) >= 0.7 and      #（qstar-qend）/qlen
-                        abs(float(columns[7]) - float(columns[6]) + 1) / int(float(columns[3])) >= 0.7 and      #（sstar-send）sqlen
-                        float(columns[11]) >= 30):      #identity
+                if (abs(float(columns[5]) - float(columns[4]) + 1) / int(columns[2]) >= blast_cover and      #（qstar-qend）/qlen
+                        abs(float(columns[7]) - float(columns[6]) + 1) / int(float(columns[3])) >= blast_cover and      #（sstar-send）sqlen
+                        float(columns[11]) >= blast_identity):      #identity
                     identifier = columns[1]
                     identifiers.add(identifier)
     
@@ -138,6 +146,8 @@ def main():
     parser.add_argument('--extractprotein', type=str, default='alignment_extract_protein.fasta', help='complete protein sequence is saved (default: alignment_extract_protein.fasta)')
     parser.add_argument("--num_threads", type=int, default=8, help="Number of threads to use.")
     parser.add_argument('--log_file', '-l', type=str, help='Log file path (optional)')
+    parser.add_argument('--coverage_threshold', '-cov',type=float, help='Coverage threshold (default 0.7)')
+    parser.add_argument('--identity_threshold', '-id',type=float, help='Identity threshold (default 30)')
     parser.add_argument('--config', type=str, default='config.yaml', help='Configuration file path (default: config.yaml)')
     args = parser.parse_args()
 
@@ -148,10 +158,17 @@ def main():
     delete_output_files(alignment_cds , alignment_protein)      
     # 加载配置
     config = load_config(args.config)
-    # 配置日志并获取 logger 实例
-    logger = setup_logging(args.log)
 
-    findextractcdsprotein(args.input_file, args.num_threads, alignment_cds ,alignment_protein, logger, config)
+    # 使用配置文件中的默认值，如果命令行中提供了值，则覆盖
+    coverage_threshold = args.coverage_threshold if args.coverage_threshold is not None else config['coverage_threshold']
+    identity_threshold = args.identity_threshold if args.identity_threshold is not None else config['identity_threshold']
+
+
+    ### 加载配置文件、log
+    logger = setup_logging(args.log_file)
+    config = load_config(args.config)  
+
+    findextractcdsprotein(args.input_file, args.num_threads, alignment_cds ,alignment_protein, identity_threshold,coverage_threshold,logger, config)
 
 if __name__ == "__main__":
     main()

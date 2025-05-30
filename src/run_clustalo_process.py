@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import os
 import sys
@@ -207,6 +209,7 @@ def main():
     parser = argparse.ArgumentParser(description="Tool for filtering duplicate proteins, merging FASTA files, and running Clustal Omega for multiple sequence alignment.")
     parser.add_argument("--target_sequence_file", help="File containing the target sequence(150nt).")
     parser.add_argument('--extractprotein', type=str, default='alignment_extract_protein.fasta', help='File where the complete protein sequences are saved (default: alignment_extract_protein.fasta)', metavar='PROTEIN_FILE')
+    parser.add_argument("--clustalo_out", type=str ,help="clustalo output file .")
     parser.add_argument('--log_file', '-l', type=str, help='Log file path (optional)')
     parser.add_argument('--config', type=str, default='config.yaml', help='Configuration file path (default: config.yaml)')
 
@@ -235,6 +238,9 @@ def main():
     run_clustalo(merged_file, clustal_output_file, num_threads, logger, config)
     remove_file(merged_file)  # 删除临时合并的文件
     remove_file(temp_filtered_file)  # 删除临时过滤的文件
+
+    if args.clustalo_out : 
+        clustal_output_file = args.clustalo_out
 
     # 从比对结果中裁剪指定序列并写入文件
     alignment = read_alignment_from_file(clustal_output_file)
