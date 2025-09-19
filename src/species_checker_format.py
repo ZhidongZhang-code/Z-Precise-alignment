@@ -139,7 +139,7 @@ class OneSpeciesChecker:
     def extract_gcf_annotations(self):
         try:
             df = pd.read_csv(self.gcf_annotation_path)
-            gcf_annotations = df.set_index('GCF Prefix').to_dict('index')
+            gcf_annotations = df.set_index('GCF_Prefix').to_dict('index')
             self.log.info("Successfully extracted GCF annotations")
             return gcf_annotations
         except Exception as e:

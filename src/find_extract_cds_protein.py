@@ -47,6 +47,10 @@ def findextractcdsprotein(input_file, num_threads, alignment_cds, alignment_prot
     """
 
     logger.info('find extract cds and protein analysis started.')
+    
+    # 清理旧的输出文件，避免追加到已存在的文件
+    delete_output_files(alignment_cds, alignment_protein)
+    
     identifiers = set()  # 用于存储唯一的标识符
     directory = config['GCF_directory']  # 从配置文件中读取路径
     with open(input_file, 'r') as infile:
@@ -172,3 +176,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

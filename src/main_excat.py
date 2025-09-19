@@ -48,6 +48,7 @@ def create_temp_file_in_current_dir(filename):
     temp_files.append(temp_path)
     return temp_path
 
+
 # 加载YAML配置文件的函数
 def load_config(config_file):
     with open(config_file, 'r') as file:
@@ -73,7 +74,7 @@ def main():
     #输出参数 - 恢复--site_protein_output参数
     output_group.add_argument("--site_protein_output", required=True, type=str, help="Output file for matched protein sequences.", metavar="PROTEIN_OUT")
     output_group.add_argument("--site_cds_output", required=True,  type=str, help="Output file for matched CDS sequences.", metavar="CDS_OUT")
-    output_group.add_argument('--formatoutput', type=str, required=False, help='Path to output file')
+    output_group.add_argument('--formatoutput', type=str, required=True, help='Path to output file')
 
     # 配置选项
     config_group.add_argument('--config', type=str, required=True, default='config.yaml', help='Configuration file path (default: config.yaml)', metavar='CONFIG_FILE')
@@ -84,7 +85,6 @@ def main():
     args = parser.parse_args()
 
     try:
-        # 创建临时文件的方式
         tmp_position_sequence = create_temp_file_in_current_dir("tmp_output_original.txt")
         tmp_matches = create_temp_file_in_current_dir("tmp_matches.fasta")
         tmp_multifiles = create_temp_file_in_current_dir("tmp_multifiles.csv")
@@ -156,16 +156,14 @@ def main():
         logger.info(f"蛋白质序列已保存到: {args.site_protein_output}")
 
         # 制作表格 - 使用用户指定的蛋白输出文件
-        if args.formatoutput:
-            checker = SpeciesChecker(args.extractprotein, args.site_protein_output, format_path, args.formatoutput, logger)
-            checker.generate_report()
+        checker = SpeciesChecker(args.extractprotein, args.site_protein_output, format_path, args.formatoutput, logger)
+        checker.generate_report()
 
-            gcf_ids, wp_ids = split_ids(args.extractprotein)
-            write_to_file(gcf_ids, wp_ids, tmp_table)
-            process_Multifiles(args.formatoutput, tmp_multifiles, args.position, tmp_table, logger)
-            shutil.move(tmp_multifiles, args.formatoutput)
-
-            logger.info(f"最终输出文件: {args.formatoutput}")
+        # 如果是多位点文件，增加表格中位点的信息
+        gcf_ids, wp_ids = split_ids(args.extractprotein)
+        write_to_file(gcf_ids, wp_ids, tmp_table)
+        process_Multifiles(args.formatoutput, tmp_multifiles, args.position, tmp_table, logger)
+        shutil.move(tmp_multifiles, args.formatoutput)
 
         logger.info("处理完成！")
         logger.info(f"最终输出文件: {args.formatoutput}")
@@ -189,5 +187,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 

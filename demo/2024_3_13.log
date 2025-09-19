@@ -1,0 +1,26 @@
+2025-06-02 14:24:41,225 - INFO - blastp 分析开始.
+2025-06-02 14:24:41,226 - INFO - 执行命令: /cpfs01/projects-HDD/cfff-47998b01bebd_HDD/zzd_21250700018/miniconda/envs/blast/bin/diamond blastp --db /cpfs01/projects-HDD/cfff-47998b01bebd_HDD/zzd_21250700018/db/medusa-2023/all-hum-medusa-db-genmoic-protein-normalizename.dmnd --query 27_query_seed_urda.fas -o tmp_blastout.csv -f 6 qseqid sseqid qlen slen qstart qend sstart send evalue bitscore length pident --evalue 1e-5 --max-target-seqs 5000 --threads 1
+2025-06-02 14:27:48,677 - INFO - blastp 命令执行成功.
+2025-06-02 14:27:48,678 - INFO - blastp 分析完成.
+2025-06-02 14:27:48,948 - INFO - File normalization processed successfully.
+2025-06-02 14:27:48,956 - INFO - blast processing complete. Results have been written to blast_normailzation.csv, with total lines: 11581.
+
+2025-06-02 14:27:48,956 - INFO - find extract cds and protein analysis started.
+2025-06-02 14:27:49,259 - INFO - find extract cds and protein analysis completed.
+2025-06-02 14:27:49,259 - INFO - complete coding sequences(cds) sequence is saved in blast_normailzation_excate_cds.fasta
+2025-06-02 14:27:49,259 - INFO - complete protein sequence is saved in blast_normailzation_excate_protein.fasta
+2025-06-02 14:54:05,975 - INFO - blastp 分析开始.
+2025-06-02 14:54:05,976 - INFO - 执行命令: /cpfs01/projects-HDD/cfff-47998b01bebd_HDD/zzd_21250700018/miniconda/envs/blast/bin/diamond blastp --db /cpfs01/projects-HDD/cfff-47998b01bebd_HDD/zzd_21250700018/db/medusa-2023/all-hum-medusa-db-genmoic-protein-normalizename.dmnd --query 27_query_seed_urda.fas -o /cpfs01/projects-HDD/cfff-47998b01bebd_HDD/zzd_21250700018/project/Z-Precise-alignment/demo/tmp_blastout.csv -f 6 qseqid sseqid qlen slen qstart qend sstart send evalue bitscore length pident --evalue 1e-5 --max-target-seqs 5000 --threads 1
+2025-06-02 14:57:23,585 - INFO - blastp 命令执行成功.
+2025-06-02 14:57:23,586 - INFO - blastp 分析完成.
+2025-06-02 14:57:23,939 - INFO - File normalization processed successfully.
+2025-06-02 14:57:23,946 - INFO - blast processing complete. Results have been written to blast_normailzation.csv, with total lines: 11581.
+
+2025-06-02 14:57:23,947 - INFO - find extract cds and protein analysis started.
+2025-06-02 14:57:24,203 - INFO - find extract cds and protein analysis completed.
+2025-06-02 14:57:24,203 - INFO - complete coding sequences(cds) sequence is saved in blast_normailzation_excate_cds.fasta
+2025-06-02 14:57:24,203 - INFO - complete protein sequence is saved in blast_normailzation_excate_protein.fasta
+2025-06-02 14:59:08,799 - INFO - 处理完成！
+2025-06-02 14:59:08,800 - INFO - 标准化输出文件: blast_normailzation.csv
+2025-06-02 14:59:08,800 - INFO - 提取的CDS文件: blast_normailzation_excate_cds.fasta
+2025-06-02 14:59:08,800 - INFO - 提取的蛋白质文件: blast_normailzation_excate_protein.fasta

@@ -22,7 +22,6 @@ from log_config import setup_logging
 
 ###新增规则：25：R表示在25位置为R，25！R表示在25位置不为R
 ###新增规则：输出结果表示为选中位点存在/不存在两种情况
-###python src/main_excat.py --input clu-extract-out.fasta --position 25:R 28:R --extractprotein blast_normailzation_excate_protein.fasta --extractcds blast_normailzation_excate_cds.fasta --site_protein_output site-protein.fasta --site_cds_output site-cds.fasta --formatoutput 111 --config ./src/config.yaml
 
 # 加载YAML配置文件的函数
 def load_config(config_file):

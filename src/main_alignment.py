@@ -4,6 +4,7 @@ import os
 import argparse
 import csv
 import shutil
+import atexit
 from blast_module import setup_logging, run_blast, load_config  
 from FileOperation import remove_file
 from fasta_renamer import rename 
@@ -38,11 +39,42 @@ from process_pfamresult import pfam_compare_files_and_keep_df1_only
 ###做GUI，在乌班图这种有图形化界面的linux系统上使用
 ###2024/10/17 增加了diamond进行快速分析 但是不属于config（因为比属于必选参数），放在alignment.py中作为加快运行速度的选项
 
-
-
 __version__ = '1.0'
 
+# 全局变量存储临时文件列表
+temp_files = []
+
+def cleanup_temp_files():
+    """清理临时文件（可选择性禁用）"""
+    # 如果不想删除临时文件，直接返回
+    for temp_file in temp_files:
+        if os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+                print(f"已删除临时文件: {temp_file}")
+            except Exception as e:
+                print(f"删除临时文件失败 {temp_file}: {e}")
+
+def create_temp_file_in_current_dir(filename):
+    """在当前目录创建指定名称的临时文件"""
+    temp_path = os.path.join(os.getcwd(), filename)
+    # 如果文件已存在，先删除
+    if os.path.exists(temp_path):
+        try:
+            os.remove(temp_path)
+        except Exception as e:
+            print(f"删除已存在文件失败 {temp_path}: {e}")
+    
+    # 创建空文件
+    with open(temp_path, 'w') as f:
+        pass
+    temp_files.append(temp_path)
+    return temp_path
+
 def main():
+    # 注册清理函数，确保程序退出时清理临时文件
+    atexit.register(cleanup_temp_files)
+
     parser = argparse.ArgumentParser(description='Control script to run BLAST analysis')
     parser = argparse.ArgumentParser(description=f'NBrun.py v.{__version__}')
 
@@ -72,6 +104,8 @@ def main():
     config_group.add_argument('--log_file', '-l', type=str, help='Optional log file path', metavar='LOG_FILE')
     config_group.add_argument('--config', type=str, default='config.yaml', help='Configuration file path (default: config.yaml)', metavar='CONFIG_FILE')
     config_group.add_argument('--version', '-v', action='version',version=f'{__version__}',help="Print version information and exit")
+    # 新增参数：是否保留临时文件
+    config_group.add_argument('--keep_temp', action='store_true', help='Keep temporary files in current directory')
 
     # pfam参数设置
     pfam_group.add_argument('--pfamkey', nargs='+',type=str, help='One or more pfam domain keys , Example: "Mur_ligase_C Another_HMM" ')
@@ -86,7 +120,7 @@ def main():
     blast_group.add_argument('--evalue', '-e', default='1e-5', help='E-value threshold  (default:1e-5)')
     blast_group.add_argument('--coverage_threshold', '-cov',type=float, help='Coverage threshold (default 0.7)')
     blast_group.add_argument('--identity_threshold', '-id',type=float, help='Identity threshold (default 30)')
-    blast_group.add_argument('--max_target_seqs', default='5000', help='Maximum number of target sequences  (default:5000)')
+    blast_group.add_argument('--max_target_seqs', default='5000000', help='Maximum number of target sequences  (default:5000)')
     blast_group.add_argument('--matrix', default='BLOSUM62', help='Scoring matrix name  (default:BLOSUM62)')
 
     # hmmsearch默认参数设置
@@ -95,134 +129,145 @@ def main():
 
     args = parser.parse_args()
 
-    ### 加载配置文件、log
-    logger = setup_logging(args.log_file)
-    config = load_config(args.config)  
+    try:
+        ### 加载配置文件、log
+        logger = setup_logging(args.log_file)
+        config = load_config(args.config)  
 
-    ### 特殊参数处理
-    #blast 使用配置文件中的默认值，如果命令行中提供了值，则覆盖
-    coverage_threshold = args.coverage_threshold if args.coverage_threshold is not None else config['coverage_threshold']
-    identity_threshold = args.identity_threshold if args.identity_threshold is not None else config['identity_threshold']
-    
-    #HMM 使用配置文件中的默认值，如果命令行中提供了值，则覆盖
-    hmm_evalue = args.hmm_evalue if args.hmm_evalue is not None else config['hmm_evalue']
-    hmm_score = args.hmm_score if args.hmm_score is not None else config['hmm_score']
+        ### 特殊参数处理
+        #blast 使用配置文件中的默认值，如果命令行中提供了值，则覆盖
+        coverage_threshold = args.coverage_threshold if args.coverage_threshold is not None else config['coverage_threshold']
+        identity_threshold = args.identity_threshold if args.identity_threshold is not None else config['identity_threshold']
+        
+        #HMM 使用配置文件中的默认值，如果命令行中提供了值，则覆盖
+        hmm_evalue = args.hmm_evalue if args.hmm_evalue is not None else config['hmm_evalue']
+        hmm_score = args.hmm_score if args.hmm_score is not None else config['hmm_score']
 
-    ### 中间临时文件
-    tmp_blastout = "tmp_blastout.csv"
-    normailzation_out = 'tmp-normailzation-out.csv'
-    temp_filtered_file = "temp_filtered.fasta"
-    temp_filtered_topfam_file = "temp_filtered_topfam.fasta"
-    temp_extractcds = 'tmp_extractcds.fasta'
-    temp_extractprotein = 'tmp_extractprotein.fasta'
-    tmp_inputfasta_clustao = "tmp_inputfasta_clustao.fasta"
-    tmp_inputfasta_clustao_hmmbuild = "tmp_inputfasta_clustao.hmm"
-    tmp_hmmsearch_output = 'hmmsearch_output.txt'
-    tmp_hmmsearch_excat = 'tmp_hmmsearch_excat.csv'
-    tmp_with_hmm_normailzationout = 'tmp_with_hmm_normailzationout.csv'
-    tmp_pfam_output = "tmp_pfam_output.csv"
-    merged_file = "tmp_merged.fasta"
-    clustal_output_file = "tmp_clu-out.fasta"
-    #tmp_pfam_result = "tmp_pfam_result.csv"
-    tmp_pfam_result = "tmp_pfam_output.csv"
-    tmp_pfam_excat = 'tmp_pfam_excat.csv'
-    
-    #初始化临时文件
-    remove_file(merged_file)  # 删除之前的 merged.fasta 文件
-    remove_file(tmp_blastout)  
-    remove_file(args.extractcds)  
-    remove_file(args.extractprotein)  
-    remove_file(temp_filtered_file)  
-    remove_file(temp_filtered_topfam_file)  
-    remove_file(args.normailzationout) 
+        ### 创建临时文件（使用统一的临时文件管理）
+        tmp_blastout = create_temp_file_in_current_dir("tmp_blastout.csv")
+        normailzation_out = create_temp_file_in_current_dir('tmp-normailzation-out.csv')
+        temp_filtered_file = create_temp_file_in_current_dir("temp_filtered.fasta")
+        temp_filtered_topfam_file = create_temp_file_in_current_dir("temp_filtered_topfam.fasta")
+        temp_extractcds = create_temp_file_in_current_dir('tmp_extractcds.fasta')
+        temp_extractprotein = create_temp_file_in_current_dir('tmp_extractprotein.fasta')
+        tmp_inputfasta_clustao = create_temp_file_in_current_dir("tmp_inputfasta_clustao.fasta")
+        tmp_inputfasta_clustao_hmmbuild = create_temp_file_in_current_dir("tmp_inputfasta_clustao.hmm")
+        tmp_hmmsearch_output = create_temp_file_in_current_dir('hmmsearch_output.txt')
+        tmp_hmmsearch_excat = create_temp_file_in_current_dir('tmp_hmmsearch_excat.csv')
+        tmp_with_hmm_normailzationout = create_temp_file_in_current_dir('tmp_with_hmm_normailzationout.csv')
+        tmp_pfam_output = create_temp_file_in_current_dir("tmp_pfam_output.csv")
+        merged_file = create_temp_file_in_current_dir("tmp_merged.fasta")
+        tmp_pfam_result = create_temp_file_in_current_dir("tmp_pfam_result.csv")
+        tmp_pfam_excat = create_temp_file_in_current_dir('tmp_pfam_excat.csv')
+        
+        # 设置clustal输出文件（如果用户指定了则使用用户指定的，否则创建临时文件）
+        if args.clustalo_out:
+            clustal_output_file = args.clustalo_out
+        else:
+            clustal_output_file = create_temp_file_in_current_dir("tmp_clu-out.fasta")
 
-    # 判断中间文件是否保留
-    if args.clustalo_out :
-        clustal_output_file = args.clustalo_out
-    if config["clustal"] == "yes" : 
-        # 读取目标序列文件，获取序列ID
-        with open(args.target_sequence_file, 'r') as f:
-            target_sequence_id = f.readline().strip()
+        # 判断中间文件是否保留
+        if config["clustal"] == "yes" : 
+            # 读取目标序列文件，获取序列ID
+            with open(args.target_sequence_file, 'r') as f:
+                target_sequence_id = f.readline().strip()
 
-    ### 将命令行参数整理成字典
-    #blast
-    blast_params = {
-        'blast_path': config[args.blast_type + '_path'],  # 根据选择的BLAST类型确定路径
-        'diamond_path':config['diamond_' + args.blast_type + '_path'],
-        'db_path': config['db_path'],
-        'diamond_db_path': config['diamond_db_path'],
-        'evalue': args.evalue,
-        'max_target_seqs': args.max_target_seqs,
-        'matrix': args.matrix,
-        'use_diamond': args.use_diamond,
-        'num_threads': args.num_threads,
-        'blast_type': args.blast_type,
-    }
-    #HMM
-    hmmsearch_params = {
-        'hmmsearch' : config['hmmsearch_path'] ,
-        'hmmscan' : config['hmmscan_path'] ,
-        'hmmbuild': config['hmmbuild'] ,
-        'clustalo' : config['clustalo_path'] ,
-        'hmm_db' : config['db_path']
-    }
-    #pfam
-    pfam_params = {
-        'pfam_path': config['pfam_scan'],  
-        'pfamdb_path': config['pfam_dirextory'],
-        'cpu': args.cpu,
-        'out': tmp_pfam_output ,
-    }
+        ### 将命令行参数整理成字典
+        #blast
+        blast_params = {
+            'blast_path': config[args.blast_type + '_path'],  # 根据选择的BLAST类型确定路径
+            'diamond_path':config['diamond_' + args.blast_type + '_path'],
+            'db_path': config['db_path'],
+            'diamond_db_path': config['diamond_db_path'],
+            'evalue': args.evalue,
+            'max_target_seqs': args.max_target_seqs,
+            'matrix': args.matrix,
+            'use_diamond': args.use_diamond,
+            'num_threads': args.num_threads,
+            'blast_type': args.blast_type,
+        }
+        #HMM
+        hmmsearch_params = {
+            'hmmsearch' : config['hmmsearch_path'] ,
+            'hmmscan' : config['hmmscan_path'] ,
+            'hmmbuild': config['hmmbuild'] ,
+            'clustalo' : config['clustalo_path'] ,
+            'hmm_db' : config['db_path']
+        }
+        #pfam
+        pfam_params = {
+            'pfam_path': config['pfam_scan'],  
+            'pfamdb_path': config['pfam_dirextory'],
+            'cpu': args.cpu,
+            'out': tmp_pfam_output ,
+        }
 
-    ### 整体流程
-    #rename(args.fasta_input, args.fasta_output, logger)
-    ##BLAST序列比对
-    #run_blast(args.fasta_rename, tmp_blastout, args.num_threads, logger, config)
-    run_blast(args.fasta_input, tmp_blastout, blast_params, logger)
-    ##HMM进一步筛选比对结果
-    if config["hmmsearch"] == "yes" : 
-        #添加一步hmmsearch进行进一步的筛选
-        run_HMMprcess(args.fasta_input, args.cpu, tmp_hmmsearch_output,hmmsearch_params, tmp_inputfasta_clustao, tmp_inputfasta_clustao_hmmbuild, logger)
-        #调用函数执行比较和保存结果
-        excat_hmm_postition(tmp_hmmsearch_output, tmp_hmmsearch_excat, hmm_evalue, hmm_score)
-        compare_files_and_keep_df1_only(tmp_blastout, tmp_hmmsearch_excat, tmp_with_hmm_normailzationout, logger)
-        #覆盖原始的normailzationout
-        #shutil.move(tmp_with_hmm_normailzationout, tmp_blastout)
-    ###pfam进行进一步筛选
-    if config["pfam"] == "yes" : 
-        #将这个蛋白结果提取出来，用于pfam的搜索
+        ### 整体流程
+        #rename(args.fasta_input, args.fasta_output, logger)
+        ##BLAST序列比对
+        #run_blast(args.fasta_rename, tmp_blastout, args.num_threads, logger, config)
+        run_blast(args.fasta_input, tmp_blastout, blast_params, logger)
+        
+        ##HMM进一步筛选比对结果
+        if config["hmmsearch"] == "yes" : 
+            #添加一步hmmsearch进行进一步的筛选
+            run_HMMprcess(args.fasta_input, args.cpu, tmp_hmmsearch_output,hmmsearch_params, tmp_inputfasta_clustao, tmp_inputfasta_clustao_hmmbuild, logger)
+            #调用函数执行比较和保存结果
+            excat_hmm_postition(tmp_hmmsearch_output, tmp_hmmsearch_excat, hmm_evalue, hmm_score)
+            compare_files_and_keep_df1_only(tmp_blastout, tmp_hmmsearch_excat, tmp_with_hmm_normailzationout, logger)
+            #覆盖原始的normailzationout
+            #shutil.move(tmp_with_hmm_normailzationout, tmp_blastout)
+            
+        ###pfam进行进一步筛选
+        if config["pfam"] == "yes" : 
+            #将这个蛋白结果提取出来，用于pfam的搜索
+            findextractcdsprotein(tmp_blastout, args.num_threads, args.extractcds ,args.extractprotein,identity_threshold,coverage_threshold, logger, config)
+            #进行筛选，将序列去重
+            filter_duplicate_proteins(args.extractprotein, temp_filtered_topfam_file)  # 过滤重复的蛋白质ID并写入临时文件
+            #使用pfam进行进一步筛选
+            run_pfam(temp_filtered_topfam_file,pfam_params, logger)   #调用pfam.py，结果保存在tmp_pfam_result
+            pfam_compare_files_and_keep_df1_only(tmp_pfam_result, tmp_blastout, args.pfamkey, tmp_pfam_output,logger)
+            #shutil.move(tmp_pfam_excat, args.blastoutput)
+            #shutil.move(tmp_pfam_output, tmp_blastout)
+            
+        filenormalization(tmp_blastout, args.normailzationout, coverage_threshold, identity_threshold, logger)
+        # makeformat(normailzation_out, args.normailzationout, logger,config)
         findextractcdsprotein(tmp_blastout, args.num_threads, args.extractcds ,args.extractprotein,identity_threshold,coverage_threshold, logger, config)
-        #进行筛选，将序列去重
-        filter_duplicate_proteins(args.extractprotein, temp_filtered_topfam_file)  # 过滤重复的蛋白质ID并写入临时文件
-        #使用pfam进行进一步筛选
-        run_pfam(temp_filtered_topfam_file,pfam_params, logger)   #调用pfam.py，结果保存在tmp_pfam_result
-        pfam_compare_files_and_keep_df1_only(tmp_pfam_result, tmp_blastout, args.pfamkey, tmp_pfam_output,logger)
-        #shutil.move(tmp_pfam_excat, args.blastoutput)
-        #shutil.move(tmp_pfam_output, tmp_blastout)
-    filenormalization(tmp_blastout, args.normailzationout, coverage_threshold, identity_threshold, logger)
-    # makeformat(normailzation_out, args.normailzationout, logger,config)
-    findextractcdsprotein(tmp_blastout, args.num_threads, args.extractcds ,args.extractprotein,identity_threshold,coverage_threshold, logger, config)
-    ##clustalo多序列比对
-    if config["clustal"] == "yes" : 
-        filter_duplicate_proteins(args.extractprotein, temp_filtered_file)  # 过滤重复的蛋白质ID并写入临时文件
-        merge_fasta_files(temp_filtered_file, args.target_sequence_file, merged_file)   #融合、制作多序列比对文件
-        run_clustalo(merged_file, clustal_output_file, args.num_threads, logger, config)
-        remove_file(merged_file)  # 删除临时合并的文件
-        remove_file(temp_filtered_file)  # 删除临时过滤的文件
-    ##提取达标序列
-        alignment = read_alignment_from_file(clustal_output_file)
-        start_position, end_position = find_start_end_positions(alignment, target_sequence_id)
-        end_position = find_end_position(alignment, target_sequence_id)
-        trimmed_alignment = trim_alignment(alignment, start_position, end_position, target_sequence_id)
-        write_alignment_to_file(trimmed_alignment, args.clustalo_extract_out)
+        
+        ##clustalo多序列比对
+        if config["clustal"] == "yes" : 
+            filter_duplicate_proteins(args.extractprotein, temp_filtered_file)  # 过滤重复的蛋白质ID并写入临时文件
+            merge_fasta_files(temp_filtered_file, args.target_sequence_file, merged_file)   #融合、制作多序列比对文件
+            run_clustalo(merged_file, clustal_output_file, args.num_threads, logger, config)
+            
+            ##提取达标序列
+            alignment = read_alignment_from_file(clustal_output_file)
+            start_position, end_position = find_start_end_positions(alignment, target_sequence_id)
+            end_position = find_end_position(alignment, target_sequence_id)
+            trimmed_alignment = trim_alignment(alignment, start_position, end_position, target_sequence_id)
+            write_alignment_to_file(trimmed_alignment, args.clustalo_extract_out)
 
-    ### 临时文件删除
-    # 判断是否有需要保存的文件
-        if args.clustalo_out is None:
-            remove_file(clustal_output_file)
+        logger.info("处理完成！")
+        logger.info(f"标准化输出文件: {args.normailzationout}")
+        logger.info(f"提取的CDS文件: {args.extractcds}")
+        logger.info(f"提取的蛋白质文件: {args.extractprotein}")
+        if config["clustal"] == "yes" and args.clustalo_extract_out:
+            logger.info(f"Clustalo提取文件: {args.clustalo_extract_out}")
 
+        # 如果保留临时文件，打印文件位置信息
+        if args.keep_temp:
+            logger.info("临时文件已保留在当前目录:")
+            for temp_file in temp_files:
+                if os.path.exists(temp_file):
+                    logger.info(f"  {temp_file}")
 
+    except Exception as e:
+        logger.error(f"处理过程中发生错误: {e}")
+        raise
+
+    # 根据参数决定是否清理临时文件
+    if not args.keep_temp:
+        cleanup_temp_files()
 
 if __name__ == "__main__":
     main()
-

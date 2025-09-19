@@ -26,6 +26,7 @@ def run_blast(query_file, output_file, blast_params, logger):
             '--db', blast_params['diamond_db_path'],
             '--query', query_file,
             '-o', output_file,
+            '--swipe',
             '-f', '6',  # 指定输出格式为tabular（数字6代表tabular格式）
             'qseqid', 'sseqid', 'qlen', 'slen', 'qstart', 'qend', 'sstart', 'send', 'evalue', 'bitscore', 'length', 'pident',
             '--evalue', blast_params['evalue'],
@@ -38,8 +39,8 @@ def run_blast(query_file, output_file, blast_params, logger):
             blast_params['blast_path'],  # 从配置中读取BLAST的路径
             '-db', blast_params['db_path'],
             '-query', query_file,
-            '--out', output_file,
-            '--outfmt', '6 qseqid sseqid qlen slen qstart qend sstart send evalue bitscore length pident',
+            '-out', output_file,
+            '-outfmt', '6 qseqid sseqid qlen slen qstart qend sstart send evalue bitscore length pident',
             '-evalue', blast_params['evalue'],
             '-max_target_seqs', blast_params['max_target_seqs'],
             '-num_threads', str(blast_params['num_threads'])  # BLAST使用 -num_threads 参数
